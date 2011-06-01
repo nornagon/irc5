@@ -6,8 +6,7 @@ module.exports =
 		assert.deepEqual {
 			prefix: '!foo'
 			command: 'NOTICE'
-			params: ['a','b','c']
-			trail: 'blah blah'
+			params: ['a','b','c', 'blah blah']
 		}, irc.parseCommand ':!foo NOTICE a b c :blah blah'
 		test.finish()
 
@@ -15,8 +14,7 @@ module.exports =
 		assert.deepEqual {
 			prefix: undefined
 			command: 'PING'
-			params: []
-			trail: 'foo'
+			params: ['foo']
 		}, irc.parseCommand('PING :foo')
 		test.finish()
 
@@ -24,8 +22,7 @@ module.exports =
 		assert.deepEqual {
 			prefix: 'wolfe.freenode.net'
 			command: 'NOTICE'
-			params: ['*']
-			trail: '*** Looking up your hostname...'
+			params: ['*', '*** Looking up your hostname...']
 		}, irc.parseCommand ':wolfe.freenode.net NOTICE * :*** Looking up your hostname...'
 		test.finish()
 
@@ -34,7 +31,6 @@ module.exports =
 			prefix: undefined
 			command: 'NOTICE'
 			params: ['foobar']
-			trail: undefined
 		}, irc.parseCommand 'NOTICE foobar'
 		test.finish()
 
@@ -42,7 +38,6 @@ module.exports =
 		assert.deepEqual {
 			prefix: undefined
 			command: 'NOTICE'
-			params: ['*']
-			trail: ''
+			params: ['*', '']
 		}, irc.parseCommand 'NOTICE * :'
 		test.finish()
