@@ -32,9 +32,9 @@ exports.parseCommand = parseCommand
 
 makeCommand = (cmd, params...) ->
 	_params = if params and params.length > 0
-		if !params[0...params.length-1].every((a) -> !/\x20/.test(a))
-			throw new Error("some non-final arguments had spaces in them")
-		if /\x20/.test(params[params.length-1])
+		if !params[0...params.length-1].every((a) -> !/^:|\x20/.test(a))
+			throw new Error("some non-final arguments had spaces or initial colons in them")
+		if /^:|\x20/.test(params[params.length-1])
 			params[params.length-1] = ':'+params[params.length-1]
 		' ' + params.join(' ')
 	else
