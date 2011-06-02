@@ -45,14 +45,20 @@ randomName = (length = 10) ->
 	chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	(chars[Math.floor(Math.random() * chars.length)] for x in [0...length]).join('')
 
-class IRC
+class IRC extends require('events').EventEmitter
 	constructor: (@server, @port, @opts) ->
 		@opts ||= {}
 		@opts.nick ||= "irc5-#{randomName()}"
-		@socket = net.createConnection(@port, @server)
+		@socket = new net.Socket
 		@socket.on 'connect', => @onConnect()
 		@socket.on 'data', (data) => @onData data
 		@data = new Buffer(0)
+
+	connect: ->
+		@socket.connect(@port, @server)
+
+	close: ->
+		@socket.end()
 
 	onConnect: ->
 		@send 'PASS', @opts.password if @opts.password
@@ -95,5 +101,7 @@ class IRC
 			when '433'
 				@opts.nick += '_'
 				@send 'NICK', @opts.nick
+
+		@emit 'message', cmd
 
 exports.IRC = IRC
