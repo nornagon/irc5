@@ -17,7 +17,7 @@ socket.on 'connection', (client) ->
 		client.send(msg)
 	irc_conn.connect()
 	client.on 'message', (data) ->
-		irc_conn.send(data...)
+		irc_conn.send(JSON.parse(data)...)
 	client.on 'disconnect', ->
 		irc_conn.close()
 

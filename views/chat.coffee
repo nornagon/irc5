@@ -34,7 +34,7 @@ html ->
 			display: table-cell;
 			text-align: right;
 			padding: 0 10px;
-			border-right: 1px solid #222;
+			border-right: 1px solid lightgray;
 		}
 		.message .text {
 			display: table-cell;
@@ -59,10 +59,43 @@ html ->
 		#status {
 			width: 100%;
 			height: 20px;
-			background-color: black;
+			background-color: lightgray;
 			position: fixed;
 			bottom: 30px;
 		}
+
+		/*
+		#main {
+			padding-left: 150px;
+		}
+		#channels {
+			position: fixed;
+			top: 0; left: 0;
+			height: 100%;
+			overflow-y: auto;
+			overflow-x: hidden;
+			width: 150px;
+			box-sizing: border-box;
+			border-right: 2px solid lightgray;
+			list-style: none;
+			margin: 0;
+			padding: 0;
+			font-family: Helvetica, arial, sans-serif;
+			font-size: 12px;
+			padding: 10px;
+			padding-right: 0;
+		}
+		#channels li {
+			padding: 2px 10px;
+			border-radius: 2px 0 0 2px;
+		}
+		#channels li.selected {
+			background-color: lightgray;
+			font-weight: bold;
+			color: white;
+		}
+		*/
+
 		.longword { word-break: break-all; }
 		'''
 		coffeescript ->
@@ -74,17 +107,45 @@ html ->
 					'"': '&quot;',
 				}
 				String(html).replace(/[&<>"]/g, (chr) -> escaped[chr])
+			status = (status) ->
+				$('#status').text(status)
+
+			commands =
+				join: (chan) ->
+					send 'JOIN', chan
+
+			command = (text) ->
+				if text[0] == '/'
+					cmd = text[1..].split(/\s+/)
+					if func = commands[cmd[0].toLowerCase()]
+						func(cmd[1..]...)
+				else
+					commands.say(text)
+
+			socket = null
+			send = () ->
+				socket.send(JSON.stringify Array.prototype.slice.call(arguments))
+
 			$ ->
 				$chat = $('#chat')
-				$('#cmd').focus()
+				$cmd = $('#cmd')
+				$cmd.focus()
 				$(window).keydown (e) ->
 					unless e.metaKey or e.ctrlKey
 						e.currentTarget = $('#cmd')[0]
-						$('#cmd').focus()
+						$cmd.focus()
+				$cmd.keydown (e) ->
+					if e.which == 13
+						cmd = $cmd.val()
+						if cmd.length > 0
+							$cmd.val('')
+							command cmd
 				socket = new io.Socket
 				socket.connect()
+				status '(connecting...)'
 				socket.on 'connect', ->
 					console.log 'connected'
+					status ''
 				socket.on 'message', (msg) ->
 					cont = $('#chat-container')
 					scroll = false
@@ -106,6 +167,11 @@ html ->
 		div id: 'main', ->
 			div id: 'chat-container', ->
 				div id: 'chat'
+		###
+		ul id: 'channels', ->
+			li id: 'system', class: 'selected', 'System'
+			li id: '#foobar', '#foobar'
+		###
 		div id: 'entry', ->
 			div id: 'status'
 			input id: 'cmd'
