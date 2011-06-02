@@ -90,13 +90,13 @@ html ->
 					scroll = false
 					if (cont.scrollTop() + cont.height() == cont[0].scrollHeight)
 						scroll = true
-					msg.params = msg.params.map (m) ->
-						m.replace(/\S{30,}/,'<span class="longword">$&</span>')
 					e = escapeHTML
+					msg.params = msg.params.map (m) ->
+						(e m).replace(/\S{30,}/,'<span class="longword">$&</span>')
 					$chat.append $("""
 					<div class='message'>
 						<div class='source'>#{e msg.prefix}</div>
-						<div class='text'>#{e msg.command} #{e msg.params.join(' ')}</div>
+						<div class='text'>#{e msg.command} #{msg.params.join(' ')}</div>
 					</div>
 					""")
 					if scroll
