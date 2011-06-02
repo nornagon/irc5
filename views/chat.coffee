@@ -13,7 +13,7 @@ html ->
 		#main {
 			width: 100%;
 			height: 100%;
-			padding-bottom: 2em;
+			padding-bottom: 50px;
 			box-sizing: border-box;
 		}
 		#chat-container {
@@ -44,7 +44,7 @@ html ->
 		#entry {
 			position: fixed;
 			bottom: 0;
-			height: 2em;
+			height: 30px;
 			width: 100%;
 		}
 		#entry input {
@@ -55,17 +55,27 @@ html ->
 			font-family: inherit;
 			font-size: inherit;
 		}
+		#status {
+			width: 100%;
+			height: 20px;
+			background-color: black;
+			position: fixed;
+			bottom: 30px;
+		}
 		.longword { word-break: break-all; }
 		'''
 		coffeescript ->
 			$ ->
 				$chat = $('#chat')
+				$('#cmd').focus()
+				$(window).keydown (e) ->
+					e.currentTarget = $('#cmd')[0]
+					$('#cmd').focus()
 				socket = new io.Socket
 				socket.connect()
 				socket.on 'connect', ->
 					console.log 'connected'
 				socket.on 'message', (msg) ->
-					console.log(msg)
 					cont = $('#chat-container')
 					scroll = false
 					if (cont.scrollTop() + cont.height() == cont[0].scrollHeight)
@@ -81,4 +91,5 @@ html ->
 			div id: 'chat-container', ->
 				div id: 'chat'
 		div id: 'entry', ->
+			div id: 'status'
 			input id: 'cmd'
