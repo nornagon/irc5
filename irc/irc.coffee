@@ -30,8 +30,7 @@ parseCommand = (data) ->
 
 exports.parseCommand = parseCommand
 
-makeCommand = (cmd, params, prefix) ->
-	_prefix = if prefix then "!#{prefix} " else ''
+makeCommand = (cmd, params...) ->
 	_params = if params and params.length > 0
 		if !params[0...params.length-1].every((a) -> !/\x20/.test(a))
 			throw new Error("some non-final arguments had spaces in them")
@@ -40,7 +39,7 @@ makeCommand = (cmd, params, prefix) ->
 		' ' + params.join(' ')
 	else
 		''
-	_prefix + cmd + _params + "\x0d\x0a"
+	cmd + _params + "\x0d\x0a"
 
 randomName = (length = 10) ->
 	chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -56,8 +55,9 @@ class IRC
 		@data = new Buffer(0)
 
 	onConnect: ->
-		@socket.write(makeCommand 'NICK', [@opts.nick])
-		@socket.write(makeCommand 'USER', [@opts.nick, '0', '*', 'An irc5 user'])
+		@send 'PASS', @opts.password if @opts.password
+		@send 'NICK', @opts.nick
+		@send 'USER', @opts.nick, '0', '*', 'An irc5 user'
 
 	onData: (pdata) ->
 		newData = new Buffer(@data.length + pdata.length)
@@ -78,11 +78,22 @@ class IRC
 			if crlf?
 				line = @data.slice(0, crlf-1)
 				@data = @data.slice(crlf+1)
+				console.log '<=', line.toString('utf8')
 				@onCommand(parseCommand line)
 			else
 				break
 
+	send: (args...) ->
+		msg = makeCommand args...
+		console.log('=>', msg[0...msg.length-2])
+		@socket.write(msg)
+
 	onCommand: (cmd) ->
-		console.log cmd
+		switch cmd.command
+			when 'PING'
+				@send 'PONG', cmd.params
+			when '433'
+				@opts.nick += '_'
+				@send 'NICK', @opts.nick
 
 exports.IRC = IRC
