@@ -17,12 +17,17 @@ socket.on 'connection', (client) ->
 		client.send(msg)
 	irc_conn.connect()
 	client.on 'message', (data) ->
-		irc_conn.send(JSON.parse(data)...)
+		irc_conn.send(data...)
 	client.on 'disconnect', ->
 		irc_conn.close()
 
 
 app.get '/', (req, res) ->
 	res.render 'chat'
+
+staticProvider = express.static('./static')
+app.get '/static/*', (req, res) ->
+	req.url = req.url.substr(7) # strip off ^/static
+	staticProvider.apply(this, arguments)
 
 app.listen(3000)
