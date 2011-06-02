@@ -78,8 +78,9 @@ html ->
 				$chat = $('#chat')
 				$('#cmd').focus()
 				$(window).keydown (e) ->
-					e.currentTarget = $('#cmd')[0]
-					$('#cmd').focus()
+					unless e.metaKey or e.ctrlKey
+						e.currentTarget = $('#cmd')[0]
+						$('#cmd').focus()
 				socket = new io.Socket
 				socket.connect()
 				socket.on 'connect', ->
