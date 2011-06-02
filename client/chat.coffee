@@ -7,6 +7,10 @@ escapeHTML = (html) ->
 	}
 	String(html).replace(/[&<>"]/g, (chr) -> escaped[chr])
 
+parsePrefix = (prefix) ->
+	p = /^([^!]+?)(?:!(.+?)(?:@(.+?))?)?$/.exec(prefix)
+	{ nick: p[1], user: p[2], host: p[3] }
+
 class IRC5
 	constructor: ->
 		@status '(connecting...)'
@@ -24,32 +28,58 @@ class IRC5
 
 		@systemWindow = new Window('system')
 		@switchToWindow @systemWindow
-		@windows = [@systemWindow]
+		@windows = {}
+		@winList = [@systemWindow]
 
-	onConnected: => @status ''
+	onConnected: =>
+		@status 'connected.'
 	onDisconnected: => @status "disconnected"
 
 	onMessage: (msg) =>
-		from = msg.prefix and /^(.+?)!/.exec(msg.prefix)
-		fromMe = from and from[1]
-		if msg.command == '001' || (msg.command == 'NICK' and fromMe)
-			@nick = msg.params[0]
-		if fromMe
-			if msg.command == 'JOIN'
-				win = new Window(msg.params[0])
-				win.target = msg.params[0]
-				@windows.push win
-		target = @systemWindow
-		for w in @windows
-			if w.target == msg.params[0]
-				target = w
-				break
-		target.message msg
+		prefix = parsePrefix msg.prefix
+		cmd = if /^\d{3}$/.test(msg.command)
+			parseInt(msg.command)
+		else
+			msg.command
+		if handlers[cmd]
+			handlers[cmd].apply(this, [prefix].concat(msg.params))
+		else
+			@systemWindow.message prefix.nick, msg.command + ' ' + msg.params.join(' ')
+
+	handlers = {
+		# RPL_WELCOME
+		001: (from, target, msg) ->
+			# once we get a welcome message, we know who we are
+			@nick = target
+			@status()
+			@systemWindow.message from.nick, msg
+
+		# RPL_NAMREPLY
+		353: (from, target, privacy, channel, nicks...) ->
+
+		NICK: (from, newNick, msg) ->
+			if from.nick == @nick
+				@nick = newNick
+
+		JOIN: (from, chan) ->
+			if from.nick == @nick
+				win = new Window(chan)
+				win.target = chan
+				@windows[win.target] = win
+				@winList.push(win)
+				@switchToWindow win
+
+		PRIVMSG: (from, target, msg) ->
+			win = @windows[target] || @systemWindow
+			win.message(from.nick, msg)
+	}
 
 	send: (args...) ->
 		@socket.send('~j~' + JSON.stringify args)
 
 	status: (status) ->
+		if !status
+			status = "[#{@nick}] #{@currentWindow.target}"
 		$('#status').text(status)
 
 	switchToWindow: (win) ->
@@ -62,16 +92,22 @@ class IRC5
 			win.scroll = win.$container[0].scrollHeight
 		win.$container.scrollTop(win.scroll)
 		@currentWindow = win
+		@status()
 
-	commands =
+	commands = {
 		join: (chan) ->
 			@send 'JOIN', chan
 		win: (num) ->
 			num = parseInt(num)
-			@switchToWindow @windows[num] if num < @windows.length
+			@switchToWindow @winList[num] if num < @winList.length
 		say: (text...) ->
-			if @currentWindow.target
-				@send 'PRIVMSG', @currentWindow.target, text.join(' ')
+			if target = @currentWindow.target
+				msg = text.join(' ')
+				@onMessage prefix: @nick, command: 'PRIVMSG', params: [target, msg]
+				@send 'PRIVMSG', target, msg
+		nick: (newNick) ->
+			@send 'NICK', newNick
+	}
 
 	command: (text) ->
 		if text[0] == '/'
@@ -92,15 +128,14 @@ class Window
 		scrollBottom = @$container.scrollTop() + @$container.height()
 		scrollBottom == @$container[0].scrollHeight
 
-	message: (msg) ->
+	message: (from, msg) ->
 		scroll = @isScrolledDown
 		e = escapeHTML
-		msg.params = msg.params.map (m) ->
-			(e m).replace(/\S{30,}/,'<span class="longword">$&</span>')
+		msg = (e msg).replace(/\S{40,}/,'<span class="longword">$&</span>')
 		@$messages.append $("""
 		<div class='message'>
-			<div class='source'>#{e msg.prefix}</div>
-			<div class='text'>#{e msg.command} #{msg.params.join(' ')}</div>
+			<div class='source'>#{e from}</div>
+			<div class='text'>#{msg}</div>
 		</div>
 		""")
 		if scroll
