@@ -54,6 +54,7 @@ html ->
 			outline-width: 0;
 			font-family: inherit;
 			font-size: inherit;
+			padding-left: 4px;
 		}
 		#status {
 			width: 100%;
@@ -65,6 +66,14 @@ html ->
 		.longword { word-break: break-all; }
 		'''
 		coffeescript ->
+			escapeHTML = (html) ->
+				escaped = {
+					'&': '&amp;',
+					'<': '&lt;',
+					'>': '&gt;',
+					'"': '&quot;',
+				}
+				String(html).replace(/[&<>"]/g, (chr) -> escaped[chr])
 			$ ->
 				$chat = $('#chat')
 				$('#cmd').focus()
@@ -82,7 +91,13 @@ html ->
 						scroll = true
 					msg.params = msg.params.map (m) ->
 						m.replace(/\S{30,}/,'<span class="longword">$&</span>')
-					$chat.append $("<div class='message'><div class='source'>#{msg.prefix}</div><div class='text'>#{msg.command} #{msg.params.join(' ')}</div></div>")
+					e = escapeHTML
+					$chat.append $("""
+					<div class='message'>
+						<div class='source'>#{e msg.prefix}</div>
+						<div class='text'>#{e msg.command} #{e msg.params.join(' ')}</div>
+					</div>
+					""")
 					if scroll
 						cont.scrollTop(1000000000)
 				socket.on 'disconnect', ->
