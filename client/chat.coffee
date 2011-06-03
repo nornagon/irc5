@@ -162,6 +162,8 @@ class IRC5
 				msg = text.join(' ')
 				@onMessage 0, prefix: @nick, command: 'PRIVMSG', params: [target, msg]
 				@send 0, 'PRIVMSG', target, msg
+		me: (text...) ->
+			commands.say('\u0001ACTION '+text.join(' ')+'\u0001')
 		nick: (newNick) ->
 			@send 0, 'NICK', newNick
 		connect: (server, port) ->
