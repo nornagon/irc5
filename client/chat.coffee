@@ -11,6 +11,53 @@ parsePrefix = (prefix) ->
 	p = /^([^!]+?)(?:!(.+?)(?:@(.+?))?)?$/.exec(prefix)
 	{ nick: p[1], user: p[2], host: p[3] }
 
+class RPC
+	constructor: (@socket, @methods) ->
+		@next_rpc_id = 0
+		@waiting_calls = {}
+
+		@socket.on 'message', @onMessage
+
+	respond = (id) ->
+		return unless id?
+		(err, res) =>
+			msg = { id: data.id }
+			if err then msg.error = err else msg.result = res
+			@socket.send msg
+
+	onMessage: (data) =>
+		unless data?
+			console.log "bad json-rpc call: #{JSON.stringify data}"
+			return
+
+		if data.method?
+			# method call
+			if func = @methods[data.method]
+				func.apply(@, [respond(data.id)].concat(data.params))
+			else
+				respond?('no such method')
+
+		else if typeof data.result != 'undefined' or typeof data.error != 'undefined'
+			# response
+			if data.id? and @waiting_calls[data.id]
+				@waiting_calls[data.id].call(@, data.error, data.result)
+				delete @waiting_calls[data.id]
+			else
+				console.log "unknown response id: #{JSON.stringify data}"
+
+		else
+			console.log "bad message: #{JSON.stringify data}"
+
+	call: (cb, method, params...) ->
+		rpc_id = @next_rpc_id++
+		@waiting_calls[rpc_id] = cb
+		@socket.send id: rpc_id, method: method, params: params
+
+	notify: (method, params...) ->
+		@socket.send method: method, params: params
+
+rpc = (socket, methods) -> new RPC(socket, methods)
+
 class IRC5
 	constructor: ->
 		@status '(connecting...)'
@@ -18,8 +65,9 @@ class IRC5
 		@socket = new io.Socket
 
 		@socket.on 'connect', @onConnected
-		@socket.on 'message', @onMessage
 		@socket.on 'disconnect', @onDisconnected
+		@rpc = rpc @socket,
+			message: (cb, args...) => @onMessage args... # notification
 
 		@socket.connect()
 
@@ -31,11 +79,10 @@ class IRC5
 		@windows = {}
 		@winList = [@systemWindow]
 
-	onConnected: =>
-		@status 'connected.'
-	onDisconnected: => @status "disconnected"
+	onConnected: => @status 'connected'
+	onDisconnected: => @status 'disconnected'
 
-	onMessage: (msg) =>
+	onMessage: (conn_id, msg) =>
 		prefix = parsePrefix msg.prefix
 		cmd = if /^\d{3}$/.test(msg.command)
 			parseInt(msg.command)
@@ -84,8 +131,8 @@ class IRC5
 			win.message(from.nick, msg)
 	}
 
-	send: (args...) ->
-		@socket.send('~j~' + JSON.stringify args)
+	send: (conn_id, msg...) ->
+		@rpc.call((->), 'send', conn_id, msg)
 
 	status: (status) ->
 		if !status
@@ -106,17 +153,19 @@ class IRC5
 
 	commands = {
 		join: (chan) ->
-			@send 'JOIN', chan
+			@send 0, 'JOIN', chan
 		win: (num) ->
 			num = parseInt(num)
 			@switchToWindow @winList[num] if num < @winList.length
 		say: (text...) ->
 			if target = @currentWindow.target
 				msg = text.join(' ')
-				@onMessage prefix: @nick, command: 'PRIVMSG', params: [target, msg]
-				@send 'PRIVMSG', target, msg
+				@onMessage 0, prefix: @nick, command: 'PRIVMSG', params: [target, msg]
+				@send 0, 'PRIVMSG', target, msg
 		nick: (newNick) ->
-			@send 'NICK', newNick
+			@send 0, 'NICK', newNick
+		connect: (server, port) ->
+			@rpc.call (->), 'connect', server, parseInt(port)
 	}
 
 	command: (text) ->
@@ -124,6 +173,8 @@ class IRC5
 			cmd = text[1..].split(/\s+/)
 			if func = commands[cmd[0].toLowerCase()]
 				func.apply(this, cmd[1..])
+			else
+				console.log "no such command"
 		else
 			commands.say.call(this, text)
 
