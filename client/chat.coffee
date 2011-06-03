@@ -79,6 +79,8 @@ class IRC5
 		@windows = {}
 		@winList = [@systemWindow]
 
+		@partialNameLists = {}
+
 	onConnected: => @status 'connected'
 	onDisconnected: => @status 'disconnected'
 
@@ -102,7 +104,15 @@ class IRC5
 			@systemWindow.message from.nick, msg
 
 		# RPL_NAMREPLY
-		353: (from, target, privacy, channel, nicks...) ->
+		353: (from, target, privacy, channel, names) ->
+			names = names.split(/\x20/)
+			@partialNameLists[channel] ||= []
+			@partialNameLists[channel] = @partialNameLists[channel].concat(names)
+
+		366: (from, target, channel, _) ->
+			if @windows[channel]
+				@windows[channel].names = @partialNameLists[channel]
+			delete @partialNameLists[channel]
 
 		NICK: (from, newNick, msg) ->
 			if from.nick == @nick
@@ -118,10 +128,12 @@ class IRC5
 				@switchToWindow win
 			if win = @windows[chan]
 				win.message('', "#{from.nick} joined the channel.")
+				win.names.push(from.nick) if win.names
 
 		PART: (from, chan) ->
 			if win = @windows[chan]
 				win.message('', "#{from.nick} left the channel.")
+				win.names = win.names.filter (n) -> n != from.nick # ugh, hack :/
 
 		QUIT: (from, reason) ->
 			# TODO message in any window that this user is in
@@ -129,6 +141,9 @@ class IRC5
 		PRIVMSG: (from, target, msg) ->
 			win = @windows[target] || @systemWindow
 			win.message(from.nick, msg)
+
+		PING: -> # server handles these for us.
+		# TODO: maybe don't even forward pings to client?
 	}
 
 	send: (conn_id, msg...) ->
@@ -168,6 +183,9 @@ class IRC5
 			@send 0, 'NICK', newNick
 		connect: (server, port) ->
 			@rpc.call (->), 'connect', server, parseInt(port)
+		names: ->
+			if names = @currentWindow.names
+				@currentWindow.message('', JSON.stringify names.slice().sort())
 	}
 
 	command: (text) ->
