@@ -27,6 +27,7 @@ body {
 	text-align: right;
 	padding: 0 10px;
 	border-right: 1px solid lightgray;
+	min-width: 125px;
 }
 .message .text {
 	display: table-cell;

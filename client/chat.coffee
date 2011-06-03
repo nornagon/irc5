@@ -60,6 +60,7 @@ class IRC5
 		NICK: (from, newNick, msg) ->
 			if from.nick == @nick
 				@nick = newNick
+				@status()
 
 		JOIN: (from, chan) ->
 			if from.nick == @nick
@@ -68,6 +69,15 @@ class IRC5
 				@windows[win.target] = win
 				@winList.push(win)
 				@switchToWindow win
+			if win = @windows[chan]
+				win.message('', "#{from.nick} joined the channel.")
+
+		PART: (from, chan) ->
+			if win = @windows[chan]
+				win.message('', "#{from.nick} left the channel.")
+
+		QUIT: (from, reason) ->
+			# TODO message in any window that this user is in
 
 		PRIVMSG: (from, target, msg) ->
 			win = @windows[target] || @systemWindow
@@ -149,6 +159,9 @@ $(window).keydown (e) ->
 	unless e.metaKey or e.ctrlKey
 		e.currentTarget = $('#cmd')[0]
 		$cmd.focus()
+	if e.altKey and 48 <= e.which <= 57
+		irc.command("/win " + (e.which - 48))
+		e.preventDefault()
 $cmd.keydown (e) ->
 	if e.which == 13
 		cmd = $cmd.val()
