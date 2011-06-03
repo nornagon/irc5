@@ -88,7 +88,7 @@ socket.on 'connection', (client) ->
 				cb('invalid connection id')
 
 	client.on 'disconnect', ->
-		for id, conn in conns
+		for id, conn of conns
 			conn.quit('client disconnected')
 			conn.removeAllListeners 'message'
 			delete conns[id]

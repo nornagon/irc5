@@ -58,7 +58,8 @@ class IRC extends require('events').EventEmitter
 		@socket.connect(@port, @server)
 
 	quit: (reason) ->
-		@socket.end(makeCommand 'QUIT', reason)
+		@send 'QUIT', reason
+		@socket.end()
 
 	onConnect: ->
 		@send 'PASS', @opts.password if @opts.password
